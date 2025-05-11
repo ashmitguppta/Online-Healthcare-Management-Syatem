@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carbon Credit Marketplace</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+    <script defer src="contract.js"></script>
+</head>
+<body class="font-sans bg-gray-100">
+
+    <!-- Navbar -->
+    <nav class="bg-white shadow">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex">
+                    <div class="flex-shrink-0 flex items-center">
+                        <img src="https://storage.googleapis.com/a1aa/image/TM4_P-G-2YRbGyL4rFR5bo1CrGOkz1ZuEU3UXWnywlE.jpg" alt="Logo" class="h-8 w-auto">
+                    </div>
+                    <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
+                        <a href="#" class="text-gray-900 inline-flex items-center px-1 pt-1 text-sm font-medium">Marketplace</a>
+                        <a href="#" class="text-gray-900 inline-flex items-center px-1 pt-1 text-sm font-medium">Wallet</a>
+                    </div>
+                </div>
+                <div class="hidden sm:ml-6 sm:flex sm:items-center">
+                    <button onclick="connectWallet()" class="bg-blue-500 text-white px-4 py-2 rounded">
+                        Connect Wallet
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <div class="relative">
+        <img src="https://storage.googleapis.com/a1aa/image/Tms64qiUpSawW6fBAP2EBqv_g80OBJdi1vwfxN5Z4Fw.jpg" alt="Hero" class="w-full h-96 object-cover">
+        <div class="absolute inset-0 bg-black opacity-50"></div>
+        <div class="absolute inset-0 flex flex-col items-center justify-center text-center text-white px-4">
+            <h1 class="text-5xl font-bold">Credits. Issuance. Trading. Offsetting.</h1>
+        </div>
+    </div>
+
+    <!-- Action Cards -->
+    <div class="container mx-auto px-4 py-10">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            
+            <!-- Issue Carbon Credits -->
+            <div class="bg-white rounded-lg shadow-lg p-6 text-center">
+                <h2 class="text-xl font-bold mb-2">Issue Carbon Credits</h2>
+                <input id="issueRecipient" type="text" placeholder="Recipient Address" class="w-full px-3 py-2 border rounded mb-2">
+                <input id="issueAmount" type="number" placeholder="Amount" class="w-full px-3 py-2 border rounded mb-2">
+                <button onclick="issueCredit()" class="bg-blue-600 text-white px-4 py-2 rounded">Issue Credits</button>
+                <p id="issueStatus" class="text-sm mt-2"></p>
+            </div>
+
+            <!-- List Carbon Credits for Sale -->
+            <div class="bg-white rounded-lg shadow-lg p-6 text-center">
+                <h2 class="text-xl font-bold mb-2">List Carbon Credits</h2>
+                <input id="listCreditId" type="number" placeholder="Credit ID" class="w-full px-3 py-2 border rounded mb-2">
+                <input id="listPrice" type="text" placeholder="Price (ETH)" class="w-full px-3 py-2 border rounded mb-2">
+                <button onclick="listCredit()" class="bg-blue-600 text-white px-4 py-2 rounded">List Credit</button>
+                <p id="listStatus" class="text-sm mt-2"></p>
+            </div>
+
+            <!-- Buy Carbon Credits -->
+            <div class="bg-white rounded-lg shadow-lg p-6 text-center">
+                <h2 class="text-xl font-bold mb-2">Buy Carbon Credits</h2>
+                <input id="buyTradeId" type="number" placeholder="Trade ID" class="w-full px-3 py-2 border rounded mb-2">
+                <input id="buyPrice" type="text" placeholder="Price (ETH)" class="w-full px-3 py-2 border rounded mb-2">
+                <button onclick="buyCredit()" class="bg-green-600 text-white px-4 py-2 rounded">Buy Credits</button>
+                <p id="buyStatus" class="text-sm mt-2"></p>
+            </div>
+
+            <!-- Verify Credits -->
+            <div class="bg-white rounded-lg shadow-lg p-6 text-center">
+                <h2 class="text-xl font-bold mb-2">Verify Carbon Credits</h2>
+                <input id="verifyCreditId" type="number" placeholder="Credit ID" class="w-full px-3 py-2 border rounded mb-2">
+                <button onclick="verifyCredit()" class="bg-green-600 text-white px-4 py-2 rounded">Verify Credit</button>
+                <p id="verifyStatus" class="text-sm mt-2"></p>
+            </div>
+
+            <!-- Expiry Check -->
+            <div class="bg-white rounded-lg shadow-lg p-6 text-center">
+                <h2 class="text-xl font-bold mb-2">Check Credit Expiry</h2>
+                <input id="expiryCreditId" type="number" placeholder="Credit ID" class="w-full px-3 py-2 border rounded mb-2">
+                <button onclick="checkExpiry()" class="bg-yellow-600 text-white px-4 py-2 rounded">Check Expiry</button>
+                <p id="expiryStatus" class="text-sm mt-2"></p>
+            </div>
+
+            <!-- Retire Carbon Credits -->
+            <div class="bg-white rounded-lg shadow-lg p-6 text-center">
+                <h2 class="text-xl font-bold mb-2">Retire Carbon Credits</h2>
+                <input id="retireCreditId" type="number" placeholder="Credit ID" class="w-full px-3 py-2 border rounded mb-2">
+                <input id="retireAmount" type="number" placeholder="Amount" class="w-full px-3 py-2 border rounded mb-2">
+                <button onclick="retireCredit()" class="bg-red-600 text-white px-4 py-2 rounded">Retire Credits</button>
+                <p id="retireStatus" class="text-sm mt-2"></p>
+            </div>
+
+        </div>
+    </div>
+
+</body>
+</html>

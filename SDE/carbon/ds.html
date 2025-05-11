@@ -1,0 +1,180 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+
+/**
+ * @title CarbonCreditSystem
+ * @dev ERC-1155 based Carbon Credit Management with Issuance, Trading, Verification, Fraud Prevention & Burning.
+ */
+contract CarbonCreditSystem is ERC1155, AccessControl, ReentrancyGuard {
+    bytes32 public constant ISSUER_ROLE = keccak256("ISSUER_ROLE");
+    bytes32 public constant VERIFIER_ROLE = keccak256("VERIFIER_ROLE");
+    bytes32 public constant TRADER_ROLE = keccak256("TRADER_ROLE");
+    bytes32 public constant RETIRER_ROLE = keccak256("RETIRER_ROLE");
+
+    uint256 public constant EXPIRY_PERIOD = 365 days;
+    uint256 public creditCounter;
+    uint256 public tradeCounter;
+
+    struct Credit {
+        uint256 creditId;
+        uint256 amount;
+        uint256 issueDate;
+        bool expired;
+        bool verified;
+        address currentHolder;
+    }
+
+    struct Trade {
+        address seller;
+        uint256 creditId;
+        uint256 price;
+        bool active;
+    }
+
+    mapping(uint256 => Credit) public credits;
+    mapping(uint256 => Trade) public trades;
+    mapping(uint256 => bool) public usedCredits; // Prevent double usage
+    mapping(address => uint256) public orgCredits; // Tracks ownership
+    mapping(address => bool) public registeredUsers; // User registration status
+
+    event UserRegistered(address indexed user);
+    event CreditIssued(uint256 indexed creditId, uint256 amount, address indexed recipient, uint256 issueDate);
+    event CreditVerified(uint256 indexed creditId, address indexed verifier);
+    event CreditTraded(uint256 tradeId, uint256 creditId, uint256 price, address indexed seller);
+    event CreditSold(uint256 tradeId, uint256 creditId, address indexed buyer);
+    event CreditRetired(uint256 indexed creditId, uint256 amount, address indexed owner);
+    event CreditExpired(uint256 indexed creditId);
+
+    constructor() ERC1155("https://carboncredits.com/{id}.json") {
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);  // ✅ FIXED Role Assignment
+    }
+
+    /**
+     * @notice Registers a new user with a specific role.
+     * @param role The role to assign (ISSUER, VERIFIER, TRADER, RETIRER).
+     */
+    function registerUser(bytes32 role) external {
+        require(!registeredUsers[msg.sender], "User already registered");
+        require(
+            role == ISSUER_ROLE || role == VERIFIER_ROLE || role == TRADER_ROLE || role == RETIRER_ROLE,
+            "Invalid role"
+        );
+
+        _grantRole(role, msg.sender);  // ✅ FIXED Role Assignment
+        registeredUsers[msg.sender] = true;
+
+        emit UserRegistered(msg.sender);
+    }
+
+    /**
+     * @notice Issues carbon credits with a 1-year expiry.
+     * @param recipient The organization receiving the credits.
+     * @param amount The number of credits issued.
+     */
+    function issueCredit(address recipient, uint256 amount) external onlyRole(ISSUER_ROLE) {
+        require(orgCredits[recipient] == 0, "Organization already owns a credit");
+
+        creditCounter++;
+        credits[creditCounter] = Credit(creditCounter, amount, block.timestamp, false, false, recipient);
+        orgCredits[recipient] = creditCounter; // Assign credit to org
+
+        _mint(recipient, creditCounter, amount, "");
+        emit CreditIssued(creditCounter, amount, recipient, block.timestamp);
+    }
+
+    /**
+     * @notice Verifies that a credit was correctly issued.
+     * @param creditId The ID of the credit being verified.
+     */
+    function verifyCredit(uint256 creditId) external onlyRole(VERIFIER_ROLE) {
+        require(credits[creditId].creditId != 0, "Invalid credit ID");
+        require(!credits[creditId].verified, "Credit already verified");
+
+        credits[creditId].verified = true;
+        emit CreditVerified(creditId, msg.sender);
+    }
+
+    /**
+     * @notice Lists carbon credits for sale.
+     * @param creditId The ID of the credit.
+     * @param price Sale price in Wei.
+     */
+    function listCredit(uint256 creditId, uint256 price) external {
+        require(balanceOf(msg.sender, creditId) > 0, "You don't own this credit");
+        require(credits[creditId].verified, "Credit must be verified before selling");
+        require(!credits[creditId].expired, "Credit is expired");
+
+        tradeCounter++;
+        trades[tradeCounter] = Trade(msg.sender, creditId, price, true);
+        emit CreditTraded(tradeCounter, creditId, price, msg.sender);
+    }
+
+    /**
+     * @notice Allows organizations to buy carbon credits.
+     * @param tradeId The trade ID.
+     */
+    function buyCredit(uint256 tradeId) external payable nonReentrant {
+        Trade storage trade = trades[tradeId];
+        require(trade.active, "Trade inactive");
+        require(msg.value == trade.price, "Incorrect price");
+
+        trade.active = false;
+        _safeTransferFrom(trade.seller, msg.sender, trade.creditId, 1, "");
+        orgCredits[msg.sender] = trade.creditId; // Assign new owner
+        orgCredits[trade.seller] = 0; // Remove previous owner
+        payable(trade.seller).transfer(msg.value);
+
+        emit CreditSold(tradeId, trade.creditId, msg.sender);
+    }
+
+    /**
+     * @notice Prevents credit from being owned by multiple organizations.
+     * @param creditId The ID of the credit.
+     */
+    function preventDoubleUse(uint256 creditId) external onlyRole(VERIFIER_ROLE) {
+        require(orgCredits[msg.sender] == creditId, "You don't own this credit");
+        require(!usedCredits[creditId], "Credit already in use");
+
+        usedCredits[creditId] = true; // Mark credit as used
+    }
+
+    /**
+     * @notice Retires a carbon credit when its emissions goal is met.
+     * @param creditId The ID of the credit.
+     * @param amount The amount of credits to retire.
+     */
+    function retireCredit(uint256 creditId, uint256 amount) external {
+        require(balanceOf(msg.sender, creditId) >= amount, "Insufficient credits");
+        require(orgCredits[msg.sender] == creditId, "Not authorized");
+
+        _burn(msg.sender, creditId, amount);
+        credits[creditId].expired = true;
+        usedCredits[creditId] = true; // Ensure it's not reused
+        orgCredits[msg.sender] = 0; // Remove ownership
+
+        emit CreditRetired(creditId, amount, msg.sender);
+    }
+
+    /**
+     * @notice Checks if a credit has expired and updates its status.
+     * @param creditId The ID of the carbon credit.
+     */
+    function checkExpiry(uint256 creditId) public {
+        require(credits[creditId].issueDate != 0, "Credit does not exist");
+        if (block.timestamp > credits[creditId].issueDate + EXPIRY_PERIOD) {
+            credits[creditId].expired = true;
+            emit CreditExpired(creditId);
+        }
+    }
+
+    /**
+     * @notice Fixes multiple inheritance issue with supportsInterface.
+     */
+    function supportsInterface(bytes4 interfaceId) public view virtual override(ERC1155, AccessControl) returns (bool) {
+        return super.supportsInterface(interfaceId);
+    }
+}
